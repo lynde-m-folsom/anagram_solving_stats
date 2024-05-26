@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <head>
+    <title>Anagram_Stats</title>
+  
+    <!-- Load libraries -->
+    <!--<script src="https://unpkg.com/jspsych@7.3.3"></script>-->
+    <script src="./jspsych.js"> </script> 
+    
+    <!-- Initialize jsPsych plugins -->
+    <script src="./jspsych-preload.js"></script>
+    <script src="./jspsych-fullscreen.js"></script>
+    <script src="./jspsych-survey-html-form.js"></script>
+    <script src="./jspsych-call-function.js"></script>
+    <script src="./jspsych-html-keyboard-response.js"></script>  
+    
+    <!-- Load custom plugins -->
+    <script src="./plugin-anagram-instructions.js" type="text/javascript"></script>
+    <script src="./plugin-anagram-trial.js" type="text/javascript"></script>
+    
+    <!-- Load anagramer scripts and data -->
+    <!-- <script src="./anagram-consent.js" type="text/javascript"></script> -->
+    <script src="./anagram-instructions.js" type="text/javascript"></script>
+    <script src="./anagram-grouping.js" type="text/javascript"></script>
+    
+    <!-- Load CSS styles -->
+    <!--<link href="https://unpkg.com/jspsych@7.3.3/css/jspsych.css" rel="stylesheet" type="text/css"></link> -->
+    <!-- Integration script for proliferate -->
+    <!-- <script src='https://proliferate.alps.science/static/js/proliferate.js'></script> -->
+  </head>
+  
+<body></body>
+<script>
+  //---------------------------------------//
+  // Define global vars.
+  //---------------------------------------//
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const condition = urlParams.get('condition') || 'A';
+
+  // Define preload 
+  var PRELOAD = {
+    type: 'preload',
+    preload: ['anagramer']
+  }
+
+  // Define full screen loading
+  var FULLSCREEN = {
+    type: 'fullscreen',
+    fullscreen_mode: true
+  }
+  // define consent
+
+  var INSTRUCTIONS = {
+    type: 'anagram-instructions',
+    condition: condition
+  }
+
+  // Ready and finish screens
+  var READY_SCREEN = {
+    type: 'html-keyboard-response',
+    stimulus: '<p>Take a break. Press any key to continue.</p>'
+  }
+
+  var FINISH_SCREEN = {
+    type: 'html-keyboard-response',
+    stimulus: '<p>Thank you for participating! Press any key to finish.</p>'
+  }
+
+  // Initialize timeline.
+  var timeline = [];
+  timeline =  timeline.concat(PRELOAD);
+  timeline =  timeline.concat(FULLSCREEN);
+  timeline =  timeline.concat(INSTRUCTIONS);
+
+  // Generate anagram trials based on the condition
+  function generateAnagramTrials(group) {
+    let selectedSet;
+
+    switch (group) {
+      case 'A':
+        selectedSet = anagram_sets_A;
+        break;
+      case 'B':
+        selectedSet = anagram_sets_B;
+        break;
+      case 'C':
+        selectedSet = anagram_sets_C;
+        break;
+      case 'D':
+        selectedSet = anagram_sets_D;
+        break;
+      default:
+        console.error("Invalid condition");
+        return [];
+    }
+
+    // Shuffle and select 10 random pairs from each type
+    const fourLetterPairs = shuffle(selectedSet.filter(pair => pair.Type === 'Four-Letter')).slice(0, 10);
+    const fiveLetterPairs = shuffle(selectedSet.filter(pair => pair.Type === 'Five-Letter')).slice(0, 10);
+    const sixLetterPairs = shuffle(selectedSet.filter(pair => pair.Type === 'Six-Letter')).slice(0, 10);
+
+    return fourLetterPairs.concat(fiveLetterPairs).concat(sixLetterPairs);
+  }
+
+  // Create blocks of trials
+  let anagramTrials = generateAnagramTrials(condition);
+  for (let i = 0; i < 3; i++) {
+    let blockTrials = anagramTrials.slice(i * 30, (i + 1) * 30).map((pair, index) => ({
+      type: 'anagram-trial',
+      group: condition,
+      block: i + 1,
+      trial: index + 1,
+      wordPair: pair.Anagram,
+      correct_responses: [pair.Word]
+    }));
+    timeline = timeline.concat(blockTrials);
+    if (i < 2) {
+      timeline.push(READY_SCREEN);
+    }
+  }
+
+  timeline.push(FINISH_SCREEN);
+
+  // Initialize jsPsych
+  jsPsych.init({
+    timeline: timeline,
+    show_progress_bar: true,
+    exclusions: { min_width: 600, min_height: 500 },
+    on_finish: function() {
+      var interaction_data = jsPsych.data.getInteractionData();
+      jsPsych.data.get().addToLast({ interactions: interaction_data.json() });
+      proliferate.submit({ data: jsPsych.data.get().values() });
+    }
+  });
+
+  // Shuffle function
+  function shuffle(array) {
+    let currentIndex = array.length, randomIndex;
+    while (currentIndex != 0) {
+      randomIndex = Math.floor(Math.random() * currentIndex);
+      currentIndex--;
+      [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+    }
+    return array;
+  }
+</script>
+</html>
